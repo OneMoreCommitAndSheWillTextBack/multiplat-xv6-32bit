@@ -1,38 +1,132 @@
 K=kernel
 U=user
+XV6_HOME := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 
-OBJS = \
-  $K/entry.o \
-  $K/start.o \
-  $K/console.o \
-  $K/printf.o \
-  $K/uart.o \
-  $K/kalloc.o \
-  $K/spinlock.o \
-  $K/string.o \
-  $K/main.o \
-  $K/vm.o \
-  $K/proc.o \
-  $K/swtch.o \
-  $K/trampoline.o \
-  $K/trap.o \
-  $K/syscall.o \
-  $K/sysproc.o \
-  $K/bio.o \
-  $K/fs.o \
-  $K/log.o \
-  $K/sleeplock.o \
-  $K/file.o \
-  $K/pipe.o \
-  $K/exec.o \
-  $K/sysfile.o \
-  $K/kernelvec.o \
-  $K/plic.o \
-  $K/sdcard.o \
+ALLOWED_PLATFORMS := nemu
+
+ifneq ($(MAKECMDGOALS),platform)
+ifndef PLATFORM
+$(error PLATFORM is not set. Run 'make platform' to list supported platforms)
+endif
+ifeq ($(filter $(PLATFORM),$(ALLOWED_PLATFORMS)),)
+$(error Unsupported PLATFORM '$(PLATFORM)'. Run 'make platform' to list supported platforms)
+endif
+endif
+
+PLATFORM_DIR := platform/$(PLATFORM)
+PLATFORM_MK := $(PLATFORM_DIR)/platform.mk
+
+BUILD_ROOT ?= $(XV6_HOME)/build
+BUILD_DIR ?= $(BUILD_ROOT)/$(PLATFORM)
+KBUILD := $(BUILD_DIR)/kernel
+UBUILD := $(BUILD_DIR)/user
+MKFSBUILD := $(BUILD_DIR)/mkfs
+
+PLATFORM_KERNEL_SRCS ?=
+PLATFORM_CFLAGS ?=
+PLATFORM_OBJS ?=
+PLATFORM_DEFAULT_GOAL ?= bin
+PLATFORM_EXTRA_PHONY ?=
+
+KERNEL_ELF := $(KBUILD)/kernel
+KERNEL_ASM := $(KBUILD)/kernel.asm
+KERNEL_SYM := $(KBUILD)/kernel.sym
+KERNEL_BIN := $(BUILD_DIR)/kernel.bin
+KERNEL_TXT := $(BUILD_DIR)/kernel.txt
+
+NEMU_IMG := $(KERNEL_BIN)
+NEMU_ELF := $(KERNEL_ELF)
+NEMU_LOG := $(BUILD_DIR)/nemu-log.txt
+
+INITCODE_OBJ := $(UBUILD)/initcode.o
+INITCODE_OUT := $(UBUILD)/initcode.out
+INITCODE_BIN := $(UBUILD)/initcode
+INITCODE_ASM := $(UBUILD)/initcode.asm
+USYS_SRC := $(UBUILD)/usys.S
+USYS_OBJ := $(UBUILD)/usys.o
+
+MKFS := $(MKFSBUILD)/mkfs
+README_COPY := $(BUILD_DIR)/README
+XV6_ELF_COPY := $(BUILD_DIR)/xv6.elf
+FS_IMG := $(BUILD_DIR)/fs.img
+
+ifdef PLATFORM
+ifneq ($(filter $(PLATFORM),$(ALLOWED_PLATFORMS)),)
+ifeq ($(wildcard $(PLATFORM_MK)),)
+$(error Missing platform config: $(PLATFORM_MK))
+endif
+include $(PLATFORM_MK)
+endif
+endif
+
+KERNEL_SRCS = \
+  $K/entry.S \
+  $K/start.c \
+  $K/console.c \
+  $K/printf.c \
+  $K/uart.c \
+  $K/kalloc.c \
+  $K/spinlock.c \
+  $K/string.c \
+  $K/main.c \
+  $K/vm.c \
+  $K/proc.c \
+  $K/swtch.S \
+  $K/trampoline.S \
+  $K/trap.c \
+  $K/syscall.c \
+  $K/sysproc.c \
+  $K/bio.c \
+  $K/fs.c \
+  $K/log.c \
+  $K/sleeplock.c \
+  $K/file.c \
+  $K/pipe.c \
+  $K/exec.c \
+  $K/sysfile.c \
+  $K/kernelvec.S \
+  $K/plic.c \
+  $K/sdcard.c \
+  $(PLATFORM_KERNEL_SRCS)
+
+USER_PROG_NAMES = \
+  cat \
+  echo \
+  forktest \
+  grep \
+  init \
+  kill \
+  ln \
+  ls \
+  mkdir \
+  rm \
+  sh \
+  stressfs \
+  usertests \
+  grind \
+  wc \
+  zombie
+
+src_to_obj = $(BUILD_DIR)/$(basename $(1)).o
+
+KERNEL_OBJS = \
+  $(foreach src,$(KERNEL_SRCS),$(call src_to_obj,$(src))) \
+  $(PLATFORM_OBJS)
+
+ULIB = \
+  $(call src_to_obj,$U/ulib.c) \
+  $(USYS_OBJ) \
+  $(call src_to_obj,$U/printf.c) \
+  $(call src_to_obj,$U/umalloc.c)
+
+USER_PROG_OBJS = $(foreach prog,$(USER_PROG_NAMES),$(call src_to_obj,$U/$(prog).c))
+UPROGS = $(addprefix $(UBUILD)/_,$(USER_PROG_NAMES))
+UPROGS_REL = $(patsubst $(BUILD_DIR)/%,%,$(UPROGS))
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
-# TOOLPREFIX = /opt/riscv/bin/riscv64-unknown-elf-
+TOOLPREFIX = /usr/local/riscv/bin/riscv64-unknown-linux-gnu-
+LIBGCC = /usr/local/riscv/lib/gcc/riscv64-unknown-linux-gnu/15.2.0/lib32/ilp32
 
 # Try to infer the correct TOOLPREFIX if not set
 ifndef TOOLPREFIX
@@ -48,13 +142,12 @@ TOOLPREFIX := $(shell if riscv64-unknown-elf-objdump -i 2>&1 | grep 'elf64-big' 
 	echo "***" 1>&2; exit 1; fi)
 endif
 
-LIBGCC = /opt/riscv/lib/gcc/riscv64-unknown-elf/13.2.0/rv32i/ilp32
-
 CC = $(TOOLPREFIX)gcc
 AS = $(TOOLPREFIX)gas
 LD = $(TOOLPREFIX)ld
 OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
+MAKE = make
 
 CFLAGS = -Wall -Werror -O -fno-omit-frame-pointer # -ggdb -gdwarf-2
 CFLAGS += -march=rv32ia_zicsr
@@ -63,6 +156,10 @@ CFLAGS += -MD
 CFLAGS += -mcmodel=medany
 CFLAGS += -ffreestanding -fcommon -nostdlib -mno-relax
 CFLAGS += -I.
+CFLAGS += -Ikernel
+CFLAGS += -Iplatform/common
+CFLAGS += -I$(PLATFORM_DIR)
+CFLAGS += $(PLATFORM_CFLAGS)
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 
 # Disable PIE when possible (for Ubuntu 16.10 toolchain)
@@ -75,88 +172,104 @@ endif
 
 LDFLAGS = -z max-page-size=4096 -melf32lriscv
 
-$K/kernel: $(OBJS) $K/kernel.ld $U/initcode
-	$(LD) $(LDFLAGS) -T $K/kernel.ld -o $K/kernel $(OBJS)  -L$(LIBGCC) -lgcc
-	$(OBJDUMP) -S $K/kernel > $K/kernel.asm
-	$(OBJDUMP) -t $K/kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $K/kernel.sym
+.DEFAULT_GOAL := $(PLATFORM_DEFAULT_GOAL)
 
-$U/initcode: $U/initcode.S
-	$(CC) $(CFLAGS) -nostdinc -I. -Ikernel -c $U/initcode.S -o $U/initcode.o
-	$(LD) $(LDFLAGS) -N -e start -Ttext 0 -o $U/initcode.out $U/initcode.o  -L$(LIBGCC) -lgcc
-	$(OBJCOPY) -S -O binary $U/initcode.out $U/initcode
-	$(OBJDUMP) -S $U/initcode.o > $U/initcode.asm
+.PHONY: platform bin fs.img clean tags $(PLATFORM_EXTRA_PHONY)
 
-tags: $(OBJS) _init
-	etags *.S *.c
+platform:
+	@echo "Supported PLATFORM values:"
+	@for p in $(ALLOWED_PLATFORMS); do echo "  $$p"; done
 
-$K/entry.o:	$K/entry.S
-	$(CC) $(CFLAGS) -c -o $K/entry.o $K/entry.S
-$K/swtch.o:	$K/swtch.S
-	$(CC) $(CFLAGS) -c -o $K/swtch.o $K/swtch.S
-$K/trampoline.o:	$K/trampoline.S
-	$(CC) $(CFLAGS) -c -o $K/trampoline.o $K/trampoline.S
-$K/kernelvec.o:	$K/kernelvec.S
-	$(CC) $(CFLAGS) -c -o $K/kernelvec.o $K/kernelvec.S
+bin: $(KERNEL_BIN) $(KERNEL_TXT)
 
-ULIB = $U/ulib.o $U/usys.o $U/printf.o $U/umalloc.o
+$(KERNEL_TXT): $(KERNEL_ELF)
+	mkdir -p $(dir $@)
+	$(OBJDUMP) -d $< > $@
 
-_%: %.o $(ULIB)
+$(KERNEL_BIN): $(KERNEL_ELF)
+	mkdir -p $(dir $@)
+	@echo + OBJCOPY "->" $@
+	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $< $@
+
+$(KERNEL_ELF): $(KERNEL_OBJS) $K/kernel.ld $(INITCODE_BIN)
+	mkdir -p $(dir $@)
+	$(LD) $(LDFLAGS) -T $K/kernel.ld -o $@ $(KERNEL_OBJS) -L$(LIBGCC) -lgcc
+	$(OBJDUMP) -S $@ > $(KERNEL_ASM)
+	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $(KERNEL_SYM)
+
+$(INITCODE_OUT): $(INITCODE_OBJ)
+	mkdir -p $(dir $@)
+	$(LD) $(LDFLAGS) -N -e start -Ttext 0 -o $@ $< -L$(LIBGCC) -lgcc
+
+$(INITCODE_BIN): $(INITCODE_OUT) $(INITCODE_OBJ)
+	mkdir -p $(dir $@)
+	$(OBJCOPY) -S -O binary $(INITCODE_OUT) $@
+	$(OBJDUMP) -S $(INITCODE_OBJ) > $(INITCODE_ASM)
+
+tags: $(KERNEL_OBJS) $(UBUILD)/_init
+	etags $K/*.[cS] $U/*.[cS] mkfs/*.c $(wildcard platform/common/*.h platform/*/*.[cSh])
+
+$(USYS_SRC): $U/usys.pl
+	mkdir -p $(dir $@)
+	perl $< > $@
+
+$(USYS_OBJ): $(USYS_SRC)
+	mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BUILD_DIR)/%.o: %.c
+	mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BUILD_DIR)/%.o: %.S
+	mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(UBUILD)/_%: $(UBUILD)/%.o $(ULIB)
+	mkdir -p $(dir $@)
 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^ -L$(LIBGCC) -lgcc -s
-	$(OBJDUMP) -S $@ > $*.asm
-	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
+	$(OBJDUMP) -S $@ > $(basename $@).asm
+	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $(basename $@).sym
 
-$U/usys.S : $U/usys.pl
-	perl $U/usys.pl > $U/usys.S
+$(UBUILD)/_forktest: $(UBUILD)/forktest.o $(call src_to_obj,$U/ulib.c) $(USYS_OBJ)
+	mkdir -p $(dir $@)
+	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^ -L$(LIBGCC) -lgcc
+	$(OBJDUMP) -S $@ > $(basename $@).asm
+	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $(basename $@).sym
 
-$U/usys.o : $U/usys.S
-	$(CC) $(CFLAGS) -c -o $U/usys.o $U/usys.S
+$(MKFS): mkfs/mkfs.c $K/fs.h $K/param.h
+	mkdir -p $(dir $@)
+	gcc -Werror -Wall -I. -o $@ $<
 
-$U/_forktest: $U/forktest.o $(ULIB)
-	# forktest has less library code linked in - needs to be small
-	# in order to be able to max out the proc table.
-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_forktest $U/forktest.o $U/ulib.o $U/usys.o  -L$(LIBGCC) -lgcc
-	$(OBJDUMP) -S $U/_forktest > $U/forktest.asm
+$(README_COPY): README
+	mkdir -p $(dir $@)
+	cp $< $@
 
-mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
-	gcc -Werror -Wall -I. -o mkfs/mkfs mkfs/mkfs.c
+$(XV6_ELF_COPY): $(KERNEL_ELF)
+	mkdir -p $(dir $@)
+	cp $< $@
 
-# Prevent deletion of intermediate files, e.g. cat.o, after first build, so
-# that disk image changes after first build are persistent until clean.  More
-# details:
-# http://www.gnu.org/software/make/manual/html_node/Chained-Rules.html
-.PRECIOUS: %.o
+fs.img: $(FS_IMG)
 
-UPROGS=\
-	$U/_cat\
-	$U/_echo\
-	$U/_forktest\
-	$U/_grep\
-	$U/_init\
-	$U/_kill\
-	$U/_ln\
-	$U/_ls\
-	$U/_mkdir\
-	$U/_rm\
-	$U/_sh\
-	$U/_stressfs\
-	$U/_usertests\
-	$U/_grind\
-	$U/_wc\
-	$U/_zombie\
+$(FS_IMG): $(MKFS) $(README_COPY) $(XV6_ELF_COPY) $(UPROGS)
+	mkdir -p $(dir $@)
+	cd $(BUILD_DIR) && ./mkfs/mkfs $(notdir $@) $(notdir $(XV6_ELF_COPY)) $(notdir $(README_COPY)) $(UPROGS_REL)
 
-fs.img: mkfs/mkfs README $(UPROGS)
-	cp kernel/kernel xv6.elf
-	mkfs/mkfs fs.img xv6.elf README $(UPROGS)
+# Prevent deletion of intermediate files, e.g. objects from chained builds.
+.PRECIOUS: $(BUILD_DIR)/%.o
 
--include kernel/*.d user/*.d
+-include \
+  $(KERNEL_OBJS:.o=.d) \
+  $(ULIB:.o=.d) \
+  $(USER_PROG_OBJS:.o=.d) \
+  $(INITCODE_OBJ:.o=.d)
 
-clean: 
+clean:
+	rm -rf $(BUILD_ROOT)
 	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
-	*/*.o */*.d */*.asm */*.sym \
-	$U/initcode $U/initcode.out $K/kernel xv6.elf fs.img \
-	mkfs/mkfs .gdbinit \
-        $U/usys.S \
-	$(UPROGS)
+	  $K/*.o $K/*.d $K/*.asm $K/*.sym $K/kernel \
+	  $U/*.o $U/*.d $U/*.asm $U/*.sym $U/initcode $U/initcode.out $U/usys.S \
+	  xv6.elf fs.img mkfs/mkfs .gdbinit
 
 ifndef CPUS
 CPUS := 1
