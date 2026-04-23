@@ -2,6 +2,7 @@
 
 PLATFORM_DEFAULT_GOAL := run
 PLATFORM_EXTRA_PHONY += run check-nemu-home
+PLATFORM_KERNEL_SRCS += platform/nemu/platform.c
 
 NEMU_IMG ?= $(KERNEL_BIN)
 NEMU_ELF ?= $(KERNEL_ELF)

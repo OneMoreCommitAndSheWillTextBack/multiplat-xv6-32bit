@@ -10,4 +10,4 @@
 #define LOGSIZE      (MAXOPBLOCKS)  // max data blocks in on-disk log
 #define NBUF         (MAXOPBLOCKS)  // size of disk block cache
 #define FSSIZE       2000  // size of file system in blocks
-#define MAXPATH      32   // maximum file path name
+#define MAXPATH     128   // maximum file path name

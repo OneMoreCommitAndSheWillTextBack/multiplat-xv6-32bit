@@ -251,9 +251,9 @@ $(XV6_ELF_COPY): $(KERNEL_ELF)
 
 fs.img: $(FS_IMG)
 
-$(FS_IMG): $(MKFS) $(README_COPY) $(XV6_ELF_COPY) $(UPROGS)
+$(FS_IMG): $(MKFS) $(README_COPY) $(UPROGS)
 	mkdir -p $(dir $@)
-	cd $(BUILD_DIR) && ./mkfs/mkfs $(notdir $@) $(notdir $(XV6_ELF_COPY)) $(notdir $(README_COPY)) $(UPROGS_REL)
+	cd $(BUILD_DIR) && ./mkfs/mkfs $(notdir $@) $(notdir $(README_COPY)) $(UPROGS_REL)
 
 # Prevent deletion of intermediate files, e.g. objects from chained builds.
 .PRECIOUS: $(BUILD_DIR)/%.o

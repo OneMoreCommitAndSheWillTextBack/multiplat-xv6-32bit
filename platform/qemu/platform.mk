@@ -2,8 +2,7 @@
 
 PLATFORM_DEFAULT_GOAL := run
 PLATFORM_EXTRA_PHONY += run gdb
-PLATFORM_KERNEL_SRCS += kernel/virtio_disk.c
-PLATFORM_CFLAGS += -DXV6_PLATFORM_QEMU
+PLATFORM_KERNEL_SRCS += platform/qemu/platform.c
 
 QEMU ?= qemu-system-riscv32
 QEMU_MACHINE ?= virt

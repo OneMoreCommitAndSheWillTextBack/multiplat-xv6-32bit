@@ -1,3 +1,6 @@
+#ifndef XV6_RISCV_H
+#define XV6_RISCV_H
+
 #ifndef __ASSEMBLER__
 
 // which hart (core) is this?
@@ -361,3 +364,5 @@ typedef uint32 *pagetable_t; // 512 PTEs
 // Sv32, to avoid having to sign-extend virtual addresses
 // that have the high bit set.
 #define MAXVA 0xFFFFFFFF
+
+#endif

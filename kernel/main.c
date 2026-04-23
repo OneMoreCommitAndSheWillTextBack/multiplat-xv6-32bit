@@ -3,9 +3,7 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "defs.h"
-#ifndef XV6_PLATFORM_QEMU
-#include "sdcard.h"
-#endif
+#include "platform.h"
 
 volatile static int started = 0;
 
@@ -31,10 +29,10 @@ main()
     trapinit();      // trap vectors
     printf("trapinithart()\n");
     trapinithart();  // install kernel trap vector
-    printf("plicinit()\n");
-    plicinit();      // set up interrupt controller
-    printf("plicinithart()\n");
-    plicinithart();  // ask PLIC for device interrupts
+    printf("platform_irq_init()\n");
+    platform_irq_init();      // set up interrupt controller
+    printf("platform_irq_init_hart()\n");
+    platform_irq_init_hart(); // ask the platform for device interrupts
     printf("binit()\n");
     binit();         // buffer cache
     printf("iinit()\n");
@@ -42,11 +40,7 @@ main()
     printf("fileinit()\n");
     fileinit();      // file table
     printf("disk_init()\n");
-#ifdef XV6_PLATFORM_QEMU
-    virtio_disk_init();
-#else
-    spi_init(); // emulated hard disk
-#endif
+    platform_disk_init();
     printf("userinit()\n");
     userinit();      // first user process
     __sync_synchronize();
@@ -58,7 +52,7 @@ main()
     printf("hart %d starting\n", cpuid());
     kvminithart();    // turn on paging
     trapinithart();   // install kernel trap vector
-    plicinithart();   // ask PLIC for device interrupts
+    platform_irq_init_hart();
   }
 
   scheduler();        

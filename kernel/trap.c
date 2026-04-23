@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "platform.h"
 
 struct spinlock tickslock;
 uint ticks;
@@ -77,7 +78,7 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == PLATFORM_INTR_TIMER)
     yield();
 
   usertrapret();
@@ -151,7 +152,9 @@ kerneltrap()
   }
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
+  if(which_dev == PLATFORM_INTR_TIMER &&
+     myproc() != 0 &&
+     myproc()->state == RUNNING)
     yield();
 
   // the yield() may have caused some traps to occur,
@@ -177,46 +180,10 @@ clockintr()
 int
 devintr()
 {
-  uint32 scause = r_scause();
+  int which_dev = platform_handle_irq();
 
-  if((scause & 0x80000000L) &&
-     (scause & 0xff) == 9){
-    // this is a supervisor external interrupt, via PLIC.
+  if(which_dev == PLATFORM_INTR_TIMER && cpuid() == 0)
+    clockintr();
 
-    // irq indicates which device interrupted.
-    int irq = plic_claim();
-
-    if(irq == UART0_IRQ){
-      uartintr();
-#ifdef XV6_PLATFORM_QEMU
-    } else if(irq == VIRTIO0_IRQ){
-      virtio_disk_intr();
-#endif
-    } else if(irq){
-      printf("unexpected interrupt irq=%d\n", irq);
-    }
-
-    // the PLIC allows each device to raise at most one
-    // interrupt at a time; tell the PLIC the device is
-    // now allowed to interrupt again.
-    if(irq)
-      plic_complete(irq);
-
-    return 1;
-  } else if(scause == 0x80000001L){
-    // software interrupt from a machine-mode timer interrupt,
-    // forwarded by timervec in kernelvec.S.
-
-    if(cpuid() == 0){
-      clockintr();
-    }
-    
-    // acknowledge the software interrupt by clearing
-    // the SSIP bit in sip.
-    w_sip(r_sip() & ~2);
-
-    return 2;
-  } else {
-    return 0;
-  }
+  return which_dev;
 }
