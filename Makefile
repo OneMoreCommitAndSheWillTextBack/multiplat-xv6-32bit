@@ -2,7 +2,7 @@ K=kernel
 U=user
 XV6_HOME := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 
-ALLOWED_PLATFORMS := nemu
+ALLOWED_PLATFORMS := nemu qemu
 
 ifneq ($(MAKECMDGOALS),platform)
 ifndef PLATFORM

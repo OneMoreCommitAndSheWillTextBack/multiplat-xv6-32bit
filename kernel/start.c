@@ -8,7 +8,7 @@ void main();
 void timerinit();
 
 // entry.S needs one stack per CPU.
-__attribute__ ((aligned (16))) char stack0[4096 * NCPU];
+__attribute__((aligned(16))) char stack0[4096 * NCPU];
 
 // a scratch area per CPU for machine-mode timer interrupts.
 uint32 timer_scratch[NCPU][6];
@@ -17,9 +17,7 @@ uint32 timer_scratch[NCPU][6];
 extern void timervec();
 
 // entry.S jumps here in machine mode on stack0.
-void
-start()
-{
+void start() {
   // set M Previous Privilege mode to Supervisor, for mret.
   unsigned long x = r_mstatus();
   x &= ~MSTATUS_MPP_MASK;
@@ -40,8 +38,8 @@ start()
 
   // configure Physical Memory Protection to give supervisor mode
   // access to all of physical memory.
-  //w_pmpaddr0(0x3fffffffffffffull);
-  //w_pmpcfg0(0xf);
+  w_pmpaddr0(0x3fffffff);
+  w_pmpcfg0(0xf);
 
   // ask for clock interrupts.
   timerinit();
@@ -59,15 +57,13 @@ start()
 // at timervec in kernelvec.S,
 // which turns them into software interrupts for
 // devintr() in trap.c.
-void
-timerinit()
-{
+void timerinit() {
   // each CPU has a separate source of timer interrupts.
   int id = r_mhartid();
 
   // ask the CLINT for a timer interrupt.
   int interval = 3200000; // cycles; about 1/10th second in qemu.
-  *(uint64*)CLINT_MTIMECMP(id) = *(uint64*)CLINT_MTIME + interval;
+  *(uint64 *)CLINT_MTIMECMP(id) = *(uint64 *)CLINT_MTIME + interval;
 
   // prepare information in scratch[] for timervec.
   // scratch[0..2] : space for timervec to save registers.

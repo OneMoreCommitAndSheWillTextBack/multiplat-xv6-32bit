@@ -22,7 +22,9 @@
 #include "defs.h"
 #include "fs.h"
 #include "buf.h"
+#ifndef XV6_PLATFORM_QEMU
 #include "sdcard.h"
+#endif
 
 struct {
   struct spinlock lock;
@@ -97,7 +99,11 @@ bread(uint dev, uint blockno)
 
   b = bget(dev, blockno);
   if(!b->valid) {
+#ifdef XV6_PLATFORM_QEMU
+    virtio_disk_rw(b, 0);
+#else
     spi_rb(b->blockno,b->data);
+#endif
     b->valid = 1;
   }
   return b;
@@ -109,7 +115,11 @@ bwrite(struct buf *b)
 {
   if(!holdingsleep(&b->lock))
     panic("bwrite");
+#ifdef XV6_PLATFORM_QEMU
+  virtio_disk_rw(b, 1);
+#else
   spi_wb(b->blockno,b->data);
+#endif
 }
 
 // Release a locked buffer.
@@ -150,5 +160,4 @@ bunpin(struct buf *b) {
   b->refcnt--;
   release(&bcache.lock);
 }
-
 

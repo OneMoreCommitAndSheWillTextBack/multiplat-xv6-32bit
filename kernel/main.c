@@ -3,7 +3,9 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "defs.h"
+#ifndef XV6_PLATFORM_QEMU
 #include "sdcard.h"
+#endif
 
 volatile static int started = 0;
 
@@ -39,8 +41,12 @@ main()
     iinit();         // inode table
     printf("fileinit()\n");
     fileinit();      // file table
-    printf("spi_init()\n");
+    printf("disk_init()\n");
+#ifdef XV6_PLATFORM_QEMU
+    virtio_disk_init();
+#else
     spi_init(); // emulated hard disk
+#endif
     printf("userinit()\n");
     userinit();      // first user process
     __sync_synchronize();
