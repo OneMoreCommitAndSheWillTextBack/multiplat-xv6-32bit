@@ -1,3 +1,4 @@
+// clang-format off
 #include "param.h"
 #include "types.h"
 #include "memlayout.h"
@@ -28,14 +29,14 @@ kvmmake(void)
   platform_kvmmap(kpgtbl);
 
   // map kernel text executable and read-only.
-  kvmmap(kpgtbl, KERNBASE, KERNBASE, (uint32)etext-KERNBASE, PTE_R | PTE_X);
+  kvmmap(kpgtbl, KERNBASE, KERNBASE, (uint32)etext-KERNBASE, PTE_R | PTE_X | PTE_A);
 
   // map kernel data and the physical RAM we'll make use of.
-  kvmmap(kpgtbl, (uint32)etext, (uint32)etext, PHYSTOP-(uint32)etext, PTE_R | PTE_W);
+  kvmmap(kpgtbl, (uint32)etext, (uint32)etext, PHYSTOP-(uint32)etext, PTE_R | PTE_W | PTE_A | PTE_D);
 
   // map the trampoline for trap entry/exit to
   // the highest virtual address in the kernel.
-  kvmmap(kpgtbl, TRAMPOLINE, (uint32)trampoline, PGSIZE, PTE_R | PTE_X);
+  kvmmap(kpgtbl, TRAMPOLINE, (uint32)trampoline, PGSIZE, PTE_R | PTE_X | PTE_A);
 
   // allocate and map a kernel stack for each process.
   proc_mapstacks(kpgtbl);
@@ -149,6 +150,9 @@ mappages(pagetable_t pagetable, uint32 va, uint32 size, uint32 pa, int perm)
       return -1;
     if(*pte & PTE_V)
       panic("mappages: remap");
+    perm |= PTE_A;
+    if(perm & PTE_W)
+      perm |= PTE_D;
     *pte = PA2PTE(pa) | perm | PTE_V;
     if(a == last)
       break;

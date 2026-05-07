@@ -3,6 +3,7 @@
 PLATFORM_DEFAULT_GOAL := run
 PLATFORM_EXTRA_PHONY += run gdb
 PLATFORM_KERNEL_SRCS += platform/qemu/platform.c
+PLATFORM_KERNEL_SRCS += platform/qemu/timervec.S
 
 QEMU ?= qemu-system-riscv32
 QEMU_MACHINE ?= virt

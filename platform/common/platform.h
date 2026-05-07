@@ -27,6 +27,7 @@ int  platform_handle_irq(void);
 
 void platform_timer_init(void);
 void platform_timer_ack(void);
+void timervec(void);
 
 void platform_uart_init(void);
 int  platform_uart_getc(void);

@@ -12,9 +12,6 @@ __attribute__((aligned(16))) char stack0[4096 * NCPU];
 // platform timer code uses this scratch area from timervec.
 uint32 timer_scratch[NCPU][6];
 
-// assembly code in kernelvec.S for machine-mode timer interrupt.
-extern void timervec();
-
 // entry.S jumps here in machine mode on stack0.
 void start() {
   // set M Previous Privilege mode to Supervisor, for mret.
