@@ -1,20 +1,57 @@
+# Default to an allow-list: keep only project files explicitly opened below.
+*
+
+# Repository files that should stay versioned.
+!/.gitignore
+!/.editorconfig
+!/.gdbinit.tmpl-riscv
+!/LICENSE
+!/Makefile
+!/README
+
+# Source trees.
+!/kernel/
+!/kernel/**
+!/mkfs/
+!/mkfs/**
+!/platform/
+!/platform/**
+!/user/
+!/user/**
+
+# Local editor/tool state.
+/.agents/
+/.cache/
+/.codex
+/.dir-locals.el
+/.gdbinit
+/.vscode/
+/compile_commands.json
+tags
+TAGS
 *~
-_*
+*.swp
+*.swo
+
+# Build products.
+/build/
 *.o
 *.d
 *.asm
 *.sym
 *.img
-vectors.S
-bootblock
-entryother
-initcode
-initcode.out
-kernelmemfs
-mkfs
-kernel/kernel
-user/usys.S
-.gdbinit
-.json
-.vscode/
-build
+
+# Legacy in-tree xv6 outputs.
+/_*
+/bootblock
+/entryother
+/initcode
+/initcode.out
+/kernelmemfs
+/vectors.S
+/kernel/kernel
+/mkfs/mkfs
+/user/_*
+/user/initcode
+/user/initcode.out
+/user/usys.S
